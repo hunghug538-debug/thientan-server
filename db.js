@@ -1,15 +1,14 @@
 const mysql = require('mysql2/promise');
 require('dotenv').config();
 
-const pool = mysql.createPool({
-    host: process.env.MYSQLHOST || process.env.DB_HOST || '127.0.0.1',
-    user: process.env.MYSQLUSER || process.env.DB_USER || 'root',
-    password: process.env.MYSQLPASSWORD || process.env.DB_PASS || '123456',
-    database: process.env.MYSQLDATABASE || process.env.DB_NAME || 'thientan_db',
-    port: process.env.MYSQLPORT || process.env.DB_PORT || 3306,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
+const mysql = require("mysql2/promise");
+
+const connection = mysql.createPool({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASS,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT,
 });
 
-module.exports = pool;
+module.exports = connection;
