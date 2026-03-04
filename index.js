@@ -44,8 +44,38 @@ app.post('/api/order', async (req, res) => {
     }
 });
 
-// API: Admin Lấy Danh Sách Đơn Hàng (Đơn giản - Có thể thêm Token sau)
-app.get('/api/orders', async (req, res) => {
+const jwt = require('jsonwebtoken');
+
+const ADMIN_USER = process.env.ADMIN_USER || 'admin';
+const ADMIN_PASS = process.env.ADMIN_PASS || '010105';
+const JWT_SECRET = process.env.JWT_SECRET || 'thientan-secret-key-2026';
+
+// API: Đăng nhập Admin
+app.post('/api/login', (req, res) => {
+    const { username, password } = req.body;
+    if (username === ADMIN_USER && password === ADMIN_PASS) {
+        const token = jwt.sign({ role: 'admin' }, JWT_SECRET, { expiresIn: '1d' });
+        res.json({ success: true, token });
+    } else {
+        res.status(401).json({ success: false, message: 'Sai tên đăng nhập hoặc mật khẩu!' });
+    }
+});
+
+// Middleware: Xác thực JWT
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Không có quyền truy cập.' });
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) return res.status(403).json({ error: 'Phiên đăng nhập hết hạn.' });
+        req.user = user;
+        next();
+    });
+};
+
+// API: Admin Lấy Danh Sách Đơn Hàng (Đã bảo vệ)
+app.get('/api/orders', authenticateToken, async (req, res) => {
     try {
         const [rows] = await db.query('SELECT * FROM orders ORDER BY created_at DESC');
         res.json(rows);

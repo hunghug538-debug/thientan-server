@@ -93,13 +93,80 @@
         </table>
     </div>
 
+    <div id="loginOverlay"
+        style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; z-index:9999;">
+        <div style="background:#fff; padding:30px; border-radius:10px; width:300px; text-align:center;">
+            <h3>Đăng nhập Admin</h3>
+            <input type="text" id="username" placeholder="Tên đăng nhập"
+                style="width:100%; padding:10px; margin-bottom:15px; border:1px solid #ccc; border-radius:5px; box-sizing:border-box;">
+            <input type="password" id="password" placeholder="Mật khẩu"
+                style="width:100%; padding:10px; margin-bottom:15px; border:1px solid #ccc; border-radius:5px; box-sizing:border-box;">
+            <button onclick="login()"
+                style="width:100%; padding:10px; background:#004d20; color:#fff; border:none; border-radius:5px; cursor:pointer; font-weight:bold;">ĐĂNG
+                NHẬP</button>
+            <p id="loginError" style="color:red; font-size:14px; display:none; margin-top:10px;">Sai thông tin!</p>
+        </div>
+    </div>
+
     <script>
+        const API_URL = 'https://thientan-server-production.up.railway.app';
+        let refreshInterval;
+
+        function checkAuth() {
+            const token = localStorage.getItem('tt_admin_token');
+            if (token) {
+                document.getElementById('loginOverlay').style.display = 'none';
+                loadOrders();
+                refreshInterval = setInterval(loadOrders, 30000);
+            } else {
+                document.getElementById('loginOverlay').style.display = 'flex';
+                if (refreshInterval) clearInterval(refreshInterval);
+            }
+        }
+
+        async function login() {
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+            const err = document.getElementById('loginError');
+
+            try {
+                const res = await fetch(`${API_URL}/api/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: u, password: p })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    localStorage.setItem('tt_admin_token', data.token);
+                    err.style.display = 'none';
+                    checkAuth();
+                } else {
+                    err.innerText = data.message || 'Sai thông tin!';
+                    err.style.display = 'block';
+                }
+            } catch (e) {
+                err.innerText = 'Lỗi kết nối máy chủ';
+                err.style.display = 'block';
+            }
+        }
+
         async function loadOrders() {
             try {
-                const res = await fetch('https://thientan-server-production.up.railway.app/api/orders');
-                const orders = await res.json();
+                const token = localStorage.getItem('tt_admin_token');
+                const res = await fetch(`${API_URL}/api/orders`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
 
+                if (res.status === 401 || res.status === 403) {
+                    // Token expired or invalid
+                    localStorage.removeItem('tt_admin_token');
+                    checkAuth();
+                    return;
+                }
+
+                const orders = await res.json();
                 const tbody = document.getElementById('orderTable');
+
                 if (orders.length === 0) {
                     tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Chưa có đơn hàng nào</td></tr>';
                     return;
@@ -126,8 +193,7 @@
             }
         }
 
-        loadOrders();
-        setInterval(loadOrders, 30000);
+        checkAuth();
     </script>
 </body>
 
