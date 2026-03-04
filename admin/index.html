@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Quản Lý Đơn Hàng | Thiên Tân Studio</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f0f4f0;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .header {
+            background: #004d20;
+            color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .container {
+            margin-top: 20px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #004d20;
+            color: white;
+        }
+
+        tr:hover {
+            background: #f9f9f9;
+        }
+
+        .badge {
+            background: #e6f4ea;
+            color: #004d20;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.85em;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <h2>📋 Hệ Thống Đơn Hàng Thiên Tân</h2>
+        <span id="autoRefreshText">Tự động làm mới 30s...</span>
+    </div>
+
+    <div class="container">
+        <h3>Danh sách đơn đặt lịch chụp (Mới nhất)</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Tên Khách</th>
+                    <th>SĐT</th>
+                    <th>Gói Chụp</th>
+                    <th>Giá</th>
+                    <th>Lựa Chọn / Ghi Chú</th>
+                    <th>Thời Gian</th>
+                    <th>Trạng Thái</th>
+                </tr>
+            </thead>
+            <tbody id="orderTable">
+                <tr>
+                    <td colspan="8" style="text-align:center;">Đang tải dữ liệu...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        async function loadOrders() {
+            try {
+                const res = await fetch('https://thientan-server-production.up.railway.app/api/orders');
+                const orders = await res.json();
+
+                const tbody = document.getElementById('orderTable');
+                if (orders.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Chưa có đơn hàng nào</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = orders.map(o => `
+          <tr>
+            <td>#${o.id}</td>
+            <td><strong>${o.ten_khach}</strong></td>
+            <td><a href="tel:${o.so_dien_thoai}" style="color:#004d20; font-weight:bold;">${o.so_dien_thoai}</a></td>
+            <td>${o.goi_chup}</td>
+            <td>${Number(o.gia).toLocaleString('vi-VN')} VNĐ</td>
+            <td style="font-size: 0.9em; color:#555;">
+              <strong>Chọn:</strong> ${o.lua_chon || 'Không'}<br>
+              <strong>Ghi chú:</strong> ${o.ghi_chu || 'Không'}
+            </td>
+            <td style="font-size: 0.85em; color:#888;">${new Date(o.created_at).toLocaleString('vi-VN')}</td>
+            <td><span class="badge">${o.trang_thai}</span></td>
+          </tr>
+        `).join('');
+            } catch (err) {
+                console.error(err);
+                document.getElementById('orderTable').innerHTML = '<tr><td colspan="8" style="text-align:center; color:red;">Lỗi tải dữ liệu</td></tr>';
+            }
+        }
+
+        loadOrders();
+        setInterval(loadOrders, 30000);
+    </script>
+</body>
+
+</html>
