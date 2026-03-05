@@ -4,6 +4,7 @@ const cors = require("cors");
 const path = require("path");
 const db = require("./db");
 const jwt = require("jsonwebtoken");
+const initDB = require("./initDB");
 require("dotenv").config();
 
 const app = express();
@@ -211,7 +212,17 @@ app.get("/", (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
-});
+(async () => {
+  try {
+    await initDB();
+    console.log("[INIT] Database initialized");
+    
+    app.listen(PORT, () => {
+      console.log("✅ Server running on port " + PORT);
+    });
+  } catch (err) {
+    console.error("[INIT ERROR]", err);
+    process.exit(1);
+  }
+})();
 ```
