@@ -14,35 +14,33 @@ TELEGRAM CONFIG
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
-async function sendTelegram(message){
-try{
+async function sendTelegram(message) {
+try {
 const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
 
 ```
-    await fetch(url,{
-        method:"POST",
-        headers:{ "Content-Type":"application/json"},
-        body: JSON.stringify({
-            chat_id: TELEGRAM_CHAT_ID,
-            text: message
-        })
-    });
-
-}catch(err){
-    console.error("Telegram error:",err);
-}
+await fetch(url, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    chat_id: TELEGRAM_CHAT_ID,
+    text: message
+  })
+});
 ```
 
+} catch (err) {
+console.error("Telegram error:", err);
+}
 }
 
 /* =========================
 MIDDLEWARE
 ========================= */
 
-app.use(cors({
-origin: '*'
-}));
-
+app.use(cors({ origin: '*' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -58,56 +56,58 @@ API: KHÁCH HÀNG ĐẶT LỊCH
 
 app.post('/api/order', async (req, res) => {
 
+try {
+
 ```
-try{
+const { ten, phone, goi, gia, luachon, ghi_chu } = req.body;
 
-    const { ten, phone, goi, gia, luachon, ghi_chu } = req.body;
+const sql = `
+  INSERT INTO orders (ten_khach, so_dien_thoai, goi_chup, gia, lua_chon, ghi_chu)
+  VALUES (?, ?, ?, ?, ?, ?)
+`;
 
-    const sql = `
-        INSERT INTO orders (ten_khach, so_dien_thoai, goi_chup, gia, lua_chon, ghi_chu)
-        VALUES (?, ?, ?, ?, ?, ?)
-    `;
+await db.query(sql, [
+  ten || 'Khách Vãng Lai',
+  phone || '',
+  goi || 'Studio',
+  gia || 0,
+  luachon || '',
+  ghi_chu || ''
+]);
 
-    await db.query(sql,[
-        ten || 'Khách Vãng Lai',
-        phone || '',
-        goi || 'Studio',
-        gia || 0,
-        luachon || '',
-        ghi_chu || ''
-    ]);
+/* ===== TELEGRAM NOTIFICATION ===== */
 
-    /* ===== TELEGRAM NOTIFICATION ===== */
-
-    await sendTelegram(`
+await sendTelegram(`
 ```
 
 📸 ĐƠN CHỤP MỚI
 
-👤 Khách: ${ten}
-📞 SĐT: ${phone}
-📦 Gói: ${goi}
-💰 Giá: ${gia}
+👤 Khách: ${ten || 'Khách Vãng Lai'}
+📞 SĐT: ${phone || 'Không có'}
+📦 Gói: ${goi || 'Studio'}
+💰 Giá: ${gia || 0}
 📝 Ghi chú: ${ghi_chu || 'Không'}
 `);
 
 ```
-    res.json({
-        success:true,
-        message:'Đặt lịch thành công. Studio sẽ liên hệ trong ít phút.'
-    });
+res.json({
+  success: true,
+  message: 'Đặt lịch thành công. Studio sẽ liên hệ trong ít phút.'
+});
+```
 
-}catch(error){
+} catch (error) {
 
-    console.error('[API Order Error]:',error);
+```
+console.error('[API Order Error]:', error);
 
-    res.status(500).json({
-        success:false,
-        message:'Lỗi máy chủ rồi!'
-    });
+res.status(500).json({
+  success: false,
+  message: 'Lỗi máy chủ rồi!'
+});
+```
 
 }
-```
 
 });
 
@@ -119,66 +119,63 @@ const ADMIN_USER = process.env.ADMIN_USER || 'admin';
 const ADMIN_PASS = process.env.ADMIN_PASS || '010105';
 const JWT_SECRET = process.env.JWT_SECRET || 'thientan-secret-key-2026';
 
-app.post('/api/login',(req,res)=>{
+app.post('/api/login', (req, res) => {
+
+const { username, password } = req.body;
+
+if (username === ADMIN_USER && password === ADMIN_PASS) {
 
 ```
-const { username,password } = req.body;
+const token = jwt.sign(
+  { role: 'admin' },
+  JWT_SECRET,
+  { expiresIn: '1d' }
+);
 
-if(username === ADMIN_USER && password === ADMIN_PASS){
+res.json({
+  success: true,
+  token
+});
+```
 
-    const token = jwt.sign(
-        { role:'admin' },
-        JWT_SECRET,
-        { expiresIn:'1d' }
-    );
+} else {
 
-    res.json({
-        success:true,
-        token
-    });
-
-}else{
-
-    res.status(401).json({
-        success:false,
-        message:'Sai tên đăng nhập hoặc mật khẩu!'
-    });
+```
+res.status(401).json({
+  success: false,
+  message: 'Sai tên đăng nhập hoặc mật khẩu!'
+});
+```
 
 }
-```
 
 });
 
 /* =========================
-JWT AUTH MIDDLEWARE
+JWT AUTH
 ========================= */
 
-const authenticateToken = (req,res,next)=>{
+const authenticateToken = (req, res, next) => {
 
-```
 const authHeader = req.headers['authorization'];
-
 const token = authHeader && authHeader.split(' ')[1];
 
-if(!token){
-    return res.status(401).json({
-        error:'Không có quyền truy cập.'
-    });
+if (!token) {
+return res.status(401).json({ error: 'Không có quyền truy cập.' });
 }
 
-jwt.verify(token,JWT_SECRET,(err,user)=>{
+jwt.verify(token, JWT_SECRET, (err, user) => {
 
-    if(err){
-        return res.status(403).json({
-            error:'Phiên đăng nhập hết hạn.'
-        });
-    }
+```
+if (err) {
+  return res.status(403).json({ error: 'Phiên đăng nhập hết hạn.' });
+}
 
-    req.user = user;
-    next();
+req.user = user;
+next();
+```
 
 });
-```
 
 };
 
@@ -186,27 +183,29 @@ jwt.verify(token,JWT_SECRET,(err,user)=>{
 ADMIN GET ORDERS
 ========================= */
 
-app.get('/api/orders', authenticateToken , async (req,res)=>{
+app.get('/api/orders', authenticateToken, async (req, res) => {
+
+try {
 
 ```
-try{
+const [rows] = await db.query(
+  'SELECT * FROM orders ORDER BY created_at DESC'
+);
 
-    const [rows] = await db.query(
-        'SELECT * FROM orders ORDER BY created_at DESC'
-    );
+res.json(rows);
+```
 
-    res.json(rows);
+} catch (error) {
 
-}catch(error){
+```
+console.error('[API Fetch Orders Error]:', error);
 
-    console.error('[API Fetch Orders Error]:',error);
-
-    res.status(500).json({
-        error:error.message
-    });
+res.status(500).json({
+  error: error.message
+});
+```
 
 }
-```
 
 });
 
@@ -214,33 +213,35 @@ try{
 ADMIN DELETE ORDER
 ========================= */
 
-app.delete('/api/orders/:id', authenticateToken , async (req,res)=>{
+app.delete('/api/orders/:id', authenticateToken, async (req, res) => {
+
+try {
 
 ```
-try{
+const { id } = req.params;
 
-    const { id } = req.params;
+const sql = 'DELETE FROM orders WHERE id = ?';
 
-    const sql = 'DELETE FROM orders WHERE id = ?';
+await db.query(sql, [id]);
 
-    await db.query(sql,[id]);
+res.json({
+  success: true,
+  message: 'Xóa đơn hàng thành công.'
+});
+```
 
-    res.json({
-        success:true,
-        message:'Xóa đơn hàng thành công.'
-    });
+} catch (error) {
 
-}catch(error){
+```
+console.error('[API Delete Order Error]:', error);
 
-    console.error('[API Delete Order Error]:',error);
-
-    res.status(500).json({
-        success:false,
-        message:'Lỗi xóa đơn hàng.'
-    });
+res.status(500).json({
+  success: false,
+  message: 'Lỗi xóa đơn hàng.'
+});
+```
 
 }
-```
 
 });
 
@@ -250,12 +251,9 @@ START SERVER
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT,()=>{
+app.listen(PORT, () => {
 
-```
 console.log(`[🚀] Server đang chạy tại http://localhost:${PORT}`);
-
-console.log(`[👤] Trang quản lý Admin: http://localhost:${PORT}/admin`);
-```
+console.log(`[👤] Trang admin: http://localhost:${PORT}/admin`);
 
 });
