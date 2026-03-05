@@ -1,228 +1,106 @@
-```javascript
-const express = require("express");
-const cors = require("cors");
-const path = require("path");
-const db = require("./db");
-const jwt = require("jsonwebtoken");
-const initDB = require("./initDB");
-require("dotenv").config();
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+const db = require('./db');
+require('dotenv').config();
 
 const app = express();
 
-app.use(cors({ origin: "*" }));
+// Middleware
+app.use(cors({
+    origin: '*'
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-/* =========================
-   TELEGRAM CONFIG
-========================= */
+// Serve Admin UI statically
+app.use('/admin', express.static(path.join(__dirname, 'admin')));
 
-const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+// API: Khách Hàng Đặt Lịch
+app.post('/api/order', async (req, res) => {
+    try {
+        const { ten, phone, goi, gia, luachon, ghi_chu } = req.body;
 
-async function sendTelegram(message) {
-  try {
-    console.log("Sending telegram...");
-
-    const res = await fetch(
-      `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          chat_id: TELEGRAM_CHAT_ID,
-          text: message,
-        }),
-      }
-    );
-
-    const data = await res.json();
-
-    console.log("Telegram response:", data);
-  } catch (error) {
-    console.error("Telegram error:", error);
-  }
-}
-
-/* =========================
-   ADMIN STATIC
-========================= */
-
-app.use("/admin", express.static(path.join(__dirname, "admin")));
-
-/* =========================
-   ORDER API
-========================= */
-
-app.post("/api/order", async (req, res) => {
-  try {
-    const { ten, phone, goi, gia, luachon, ghi_chu } = req.body;
-
-    const sql = `
-      INSERT INTO orders
-      (ten_khach, so_dien_thoai, goi_chup, gia, lua_chon, ghi_chu)
+        const sql = `
+      INSERT INTO orders (ten_khach, so_dien_thoai, goi_chup, gia, lua_chon, ghi_chu)
       VALUES (?, ?, ?, ?, ?, ?)
     `;
 
-    await db.query(sql, [
-      ten || "Khách Vãng Lai",
-      phone || "",
-      goi || "Studio",
-      gia || 0,
-      luachon || "",
-      ghi_chu || "",
-    ]);
+        await db.query(sql, [
+            ten || 'Khách Vãng Lai',
+            phone || '',
+            goi || 'Studio',
+            gia || 0,
+            luachon || '',
+            ghi_chu || ''
+        ]);
 
-    const message = `
-📸 ĐƠN CHỤP MỚI
+        // TODO: Tích hợp gửi tin nhắn Zalo ở đây
 
-👤 Khách: ${ten || "Khách Vãng Lai"}
-📞 SĐT: ${phone || "Không có"}
-📦 Gói: ${goi || "Studio"}
-💰 Giá: ${gia || 0}
-📝 Ghi chú: ${ghi_chu || "Không"}
-`;
-
-    await sendTelegram(message);
-
-    res.json({
-      success: true,
-      message: "Đặt lịch thành công",
-    });
-  } catch (error) {
-    console.error("[ORDER ERROR]", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
-  }
+        res.json({ success: true, message: 'Đặt lịch thành công. Studio sẽ liên hệ trong ít phút.' });
+    } catch (error) {
+        console.error('[API Order Error]:', error);
+        res.status(500).json({ success: false, message: 'Lỗi máy chủ rôi!' });
+    }
 });
 
-/* =========================
-   ADMIN LOGIN
-========================= */
+const jwt = require('jsonwebtoken');
 
-const ADMIN_USER = process.env.ADMIN_USER || "admin";
-const ADMIN_PASS = process.env.ADMIN_PASS || "010105";
-const JWT_SECRET = process.env.JWT_SECRET || "secret";
+const ADMIN_USER = process.env.ADMIN_USER || 'admin';
+const ADMIN_PASS = process.env.ADMIN_PASS || '010105';
+const JWT_SECRET = process.env.JWT_SECRET || 'thientan-secret-key-2026';
 
-app.post("/api/login", (req, res) => {
-  const { username, password } = req.body;
-
-  if (username === ADMIN_USER && password === ADMIN_PASS) {
-    const token = jwt.sign({ role: "admin" }, JWT_SECRET, {
-      expiresIn: "1d",
-    });
-
-    res.json({
-      success: true,
-      token,
-    });
-  } else {
-    res.status(401).json({
-      success: false,
-      message: "Sai tài khoản",
-    });
-  }
+// API: Đăng nhập Admin
+app.post('/api/login', (req, res) => {
+    const { username, password } = req.body;
+    if (username === ADMIN_USER && password === ADMIN_PASS) {
+        const token = jwt.sign({ role: 'admin' }, JWT_SECRET, { expiresIn: '1d' });
+        res.json({ success: true, token });
+    } else {
+        res.status(401).json({ success: false, message: 'Sai tên đăng nhập hoặc mật khẩu!' });
+    }
 });
 
-/* =========================
-   AUTH MIDDLEWARE
-========================= */
+// Middleware: Xác thực JWT
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Không có quyền truy cập.' });
 
-function authenticateToken(req, res, next) {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
-
-  if (!token) return res.sendStatus(401);
-
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.sendStatus(403);
-
-    req.user = user;
-    next();
-  });
-}
-
-/* =========================
-   GET ORDERS
-========================= */
-
-app.get("/api/orders", authenticateToken, async (req, res) => {
-  try {
-    const [rows] = await db.query(
-      "SELECT * FROM orders ORDER BY created_at DESC"
-    );
-
-    res.json(rows);
-  } catch (err) {
-    console.error(err);
-
-    res.status(500).json({
-      error: "Fetch error",
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) return res.status(403).json({ error: 'Phiên đăng nhập hết hạn.' });
+        req.user = user;
+        next();
     });
-  }
+};
+
+// API: Admin Lấy Danh Sách Đơn Hàng (Đã bảo vệ)
+app.get('/api/orders', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await db.query('SELECT * FROM orders ORDER BY created_at DESC');
+        res.json(rows);
+    } catch (error) {
+        console.error('[API Fetch Orders Error]:', error);
+        res.status(500).json({ error: error.message });
+    }
 });
 
-/* =========================
-   DELETE ORDER
-========================= */
-
-app.delete("/api/orders/:id", authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    await db.query("DELETE FROM orders WHERE id=?", [id]);
-
-    res.json({ success: true });
-  } catch (err) {
-    console.error(err);
-
-    res.status(500).json({
-      success: false,
-    });
-  }
+// API: Admin Xóa Đơn Hàng (Đã bảo vệ)
+app.delete('/api/orders/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const sql = 'DELETE FROM orders WHERE id = ?';
+        await db.query(sql, [id]);
+        res.json({ success: true, message: 'Xóa đơn hàng thành công.' });
+    } catch (error) {
+        console.error('[API Delete Order Error]:', error);
+        res.status(500).json({ success: false, message: 'Lỗi xóa đơn hàng.' });
+    }
 });
 
-/* =========================
-   ROOT
-========================= */
-
-app.get("/", (req, res) => {
-  res.send(`
-  <html>
-  <body style="font-family:sans-serif;text-align:center;padding:60px;background:#f7f3ef;color:#004d20">
-    <h1>🚀 Thiên Tân Studio API - Đang hoạt động!</h1>
-    <p>Server đang chạy ổn định.</p>
-    <a href="/admin"
-      style="padding:10px 24px;background:#00c853;color:#fff;border-radius:20px;text-decoration:none;font-weight:bold">
-      Vào Trang Quản Trị
-    </a>
-  </body>
-  </html>
-  `);
-});
-
-/* =========================
-   START SERVER
-========================= */
-
+// Start Server
 const PORT = process.env.PORT || 3000;
-
-(async () => {
-  try {
-    await initDB();
-    console.log("[INIT] Database initialized");
-    
-    app.listen(PORT, () => {
-      console.log("✅ Server running on port " + PORT);
-    });
-  } catch (err) {
-    console.error("[INIT ERROR]", err);
-    process.exit(1);
-  }
-})();
-```
+app.listen(PORT, () => {
+    console.log(`[🚀] Server đang chạy tại http://localhost:${PORT}`);
+    console.log(`[👤] Trang quản lý Admin: http://localhost:${PORT}/admin`);
+});

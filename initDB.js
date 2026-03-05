@@ -41,10 +41,11 @@ async function initDB() {
 
         await conn.end();
         console.log('[DB] Setup completed successfully.');
+        process.exit(0);
     } catch (err) {
         console.error('[DB] Setup failed:', err);
-        throw err;
+        process.exit(1);
     }
 }
 
-module.exports = initDB;
+initDB();
