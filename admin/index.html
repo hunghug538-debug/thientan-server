@@ -60,6 +60,33 @@
             border-radius: 12px;
             font-size: 0.85em;
         }
+
+        .btn-delete {
+            background: #c00;
+            color: #fff;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.85em;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .btn-delete:hover {
+            background: #900;
+        }
+
+        .summary-box {
+            margin-top: 30px;
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 5px solid #004d20;
+            font-size: 18px;
+            font-weight: 600;
+            color: #004d20;
+        }
     </style>
 </head>
 
@@ -83,6 +110,7 @@
                     <th>Lựa Chọn / Ghi Chú</th>
                     <th>Thời Gian</th>
                     <th>Trạng Thái</th>
+                    <th>Hành Động</th>
                 </tr>
             </thead>
             <tbody id="orderTable">
@@ -91,6 +119,10 @@
                 </tr>
             </tbody>
         </table>
+
+        <div class="summary-box" id="summaryBox" style="display:none;">
+            💰 Tổng tiền tất cả đơn hàng: <span id="totalAmount">0</span> VNĐ
+        </div>
     </div>
 
     <div id="loginOverlay"
@@ -168,11 +200,15 @@
                 const tbody = document.getElementById('orderTable');
 
                 if (orders.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Chưa có đơn hàng nào</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Chưa có đơn hàng nào</td></tr>';
+                    document.getElementById('summaryBox').style.display = 'none';
                     return;
                 }
 
-                tbody.innerHTML = orders.map(o => `
+                let totalAmount = 0;
+                tbody.innerHTML = orders.map(o => {
+                    totalAmount += Number(o.gia) || 0;
+                    return `
           <tr>
             <td>#${o.id}</td>
             <td><strong>${o.ten_khach}</strong></td>
@@ -185,11 +221,41 @@
             </td>
             <td style="font-size: 0.85em; color:#888;">${new Date(o.created_at).toLocaleString('vi-VN')}</td>
             <td><span class="badge">${o.trang_thai}</span></td>
+            <td><button class="btn-delete" onclick="deleteOrder(${o.id})">Xóa</button></td>
           </tr>
-        `).join('');
+        `;
+                }).join('');
+
+                // Hiển thị tổng tiền
+                document.getElementById('totalAmount').innerText = totalAmount.toLocaleString('vi-VN');
+                document.getElementById('summaryBox').style.display = 'block';
+
             } catch (err) {
                 console.error(err);
-                document.getElementById('orderTable').innerHTML = '<tr><td colspan="8" style="text-align:center; color:red;">Lỗi tải dữ liệu</td></tr>';
+                document.getElementById('orderTable').innerHTML = '<tr><td colspan="9" style="text-align:center; color:red;">Lỗi tải dữ liệu</td></tr>';
+            }
+        }
+
+        async function deleteOrder(orderId) {
+            if (!confirm('Bạn chắc chắn muốn xóa đơn hàng này?')) return;
+
+            try {
+                const token = localStorage.getItem('tt_admin_token');
+                const res = await fetch(`${API_URL}/api/orders/${orderId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    alert('✅ Xóa đơn hàng thành công!');
+                    loadOrders();
+                } else {
+                    alert('❌ Lỗi: ' + (data.message || 'Không thể xóa đơn hàng'));
+                }
+            } catch (err) {
+                alert('❌ Lỗi kết nối máy chủ');
+                console.error(err);
             }
         }
 

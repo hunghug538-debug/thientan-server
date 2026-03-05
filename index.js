@@ -85,6 +85,19 @@ app.get('/api/orders', authenticateToken, async (req, res) => {
     }
 });
 
+// API: Admin Xóa Đơn Hàng (Đã bảo vệ)
+app.delete('/api/orders/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const sql = 'DELETE FROM orders WHERE id = ?';
+        await db.query(sql, [id]);
+        res.json({ success: true, message: 'Xóa đơn hàng thành công.' });
+    } catch (error) {
+        console.error('[API Delete Order Error]:', error);
+        res.status(500).json({ success: false, message: 'Lỗi xóa đơn hàng.' });
+    }
+});
+
 // Start Server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
