@@ -1,13 +1,10 @@
+```javascript
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const db = require("./db");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
-
-/* FIX FETCH FOR NODE */
-const fetch = (...args) =>
-  import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 const app = express();
 
@@ -16,7 +13,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /* =========================
-   TELEGRAM
+   TELEGRAM CONFIG
 ========================= */
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -24,21 +21,27 @@ const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 async function sendTelegram(message) {
   try {
-    const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
+    console.log("Sending telegram...");
 
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT_ID,
-        text: message,
-      }),
-    });
+    const res = await fetch(
+      `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          chat_id: TELEGRAM_CHAT_ID,
+          text: message,
+        }),
+      }
+    );
 
     const data = await res.json();
-    console.log("[TG] Sent:", data);
-  } catch (err) {
-    console.error("[TG ERROR]", err);
+
+    console.log("Telegram response:", data);
+  } catch (error) {
+    console.error("Telegram error:", error);
   }
 }
 
@@ -109,11 +112,9 @@ app.post("/api/login", (req, res) => {
   const { username, password } = req.body;
 
   if (username === ADMIN_USER && password === ADMIN_PASS) {
-    const token = jwt.sign(
-      { role: "admin" },
-      JWT_SECRET,
-      { expiresIn: "1d" }
-    );
+    const token = jwt.sign({ role: "admin" }, JWT_SECRET, {
+      expiresIn: "1d",
+    });
 
     res.json({
       success: true,
@@ -146,7 +147,7 @@ function authenticateToken(req, res, next) {
 }
 
 /* =========================
-   GET ORDERS (ADMIN)
+   GET ORDERS
 ========================= */
 
 app.get("/api/orders", authenticateToken, async (req, res) => {
@@ -166,7 +167,7 @@ app.get("/api/orders", authenticateToken, async (req, res) => {
 });
 
 /* =========================
-   DELETE ORDER (ADMIN)
+   DELETE ORDER
 ========================= */
 
 app.delete("/api/orders/:id", authenticateToken, async (req, res) => {
@@ -213,3 +214,4 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("Server running on port " + PORT);
 });
+```
